@@ -15,6 +15,9 @@ function createClientFromUri(uri, useSSL = false) {
     return new Client({
       connectionString: uri,
       ssl: useSSL ? { rejectUnauthorized: false } : false,
+      // Add connection options to help with network issues
+      connectionTimeoutMillis: 30000,
+      idleTimeoutMillis: 30000,
     });
   } catch (error) {
     console.log("Direct connection failed, parsing manually...");
@@ -34,6 +37,11 @@ function createClientFromUri(uri, useSSL = false) {
         port: parseInt(port),
         database: database,
         ssl: useSSL ? { rejectUnauthorized: false } : false,
+        // Add connection options to help with network issues
+        connectionTimeoutMillis: 30000,
+        idleTimeoutMillis: 30000,
+        // Force IPv4 if possible
+        family: 4,
       });
     } else {
       throw new Error(`Unable to parse connection string: ${uri}`);
@@ -61,6 +69,20 @@ if (process.env.NODE_ENV === "production") {
   }
 }
 
-db.connect();
+// Connect with error handling
+db.connect()
+  .then(() => {
+    console.log("Database connected successfully");
+  })
+  .catch((err) => {
+    console.error("Database connection failed:", err);
+    // In production, we might want to retry or exit gracefully
+    if (process.env.NODE_ENV === "production") {
+      console.error("Retrying connection in 5 seconds...");
+      setTimeout(() => {
+        db.connect().catch(console.error);
+      }, 5000);
+    }
+  });
 
 module.exports = db;
