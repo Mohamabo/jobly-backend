@@ -18,16 +18,26 @@ function createClientFromUri(uri, useSSL = false) {
     });
   } catch (error) {
     console.log("Direct connection failed, parsing manually...");
-    // Parse manually if connection string parsing fails
-    const url = new URL(uri);
-    return new Client({
-      user: url.username,
-      password: decodeURIComponent(url.password),
-      host: url.hostname,
-      port: parseInt(url.port) || 5432,
-      database: url.pathname.slice(1), // Remove leading slash
-      ssl: useSSL ? { rejectUnauthorized: false } : false,
-    });
+
+    // Manual parsing for problematic connection strings
+    // Format: postgresql://username:password@host:port/database
+    const match = uri.match(
+      /^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/
+    );
+
+    if (match) {
+      const [, username, password, host, port, database] = match;
+      return new Client({
+        user: username,
+        password: password, // Use password as-is from the match
+        host: host,
+        port: parseInt(port),
+        database: database,
+        ssl: useSSL ? { rejectUnauthorized: false } : false,
+      });
+    } else {
+      throw new Error(`Unable to parse connection string: ${uri}`);
+    }
   }
 }
 
